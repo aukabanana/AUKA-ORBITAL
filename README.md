@@ -6,7 +6,7 @@ Modular Hybrid Command Deck + Live `@aukabanana` GitHub Explorer rendered in 100
 - `index.html` — Entry point and structural HUD layout (zero emojis/icons, works directly via `file://` double-click or local server).
 - `css/style.css` — Structural monospace styling, hairline borders, and slider controls.
 - `js/state.js` — Global simulation state, camera lock/pan state, and `localStorage` persistence (`auka_orbital_draft2_state_v1`).
-- `js/audio.js` — Web Audio API synthesizer with pentatonic guitar-string harmonic plucks (`E2`–`E4`).
+- `js/audio.js` — Web Audio API synthesizer with master volume gain, key tuning (`C`, `D`, `E`, `F`, `G`, `A`, `B`), pitch transpose (`-12` to `+12` st), guitar string presets (`std_e`, `drop_d`, `dadgad`, `pentatonic`), and 440Hz/432Hz cosmic tuning.
 - `js/github.js` — Live GitHub API synchronization (`https://api.github.com/users/aukabanana/repos`) + real probe repo inspection (`/contents` file trees, `/commits`, `/readme`) and persistent per-planet task notes.
 - `js/physics.js` — N-body gravity, Keplerian orbital mechanics, wormhole teleportation, and `[0xDEAD]` rogue CTF satellite interception.
 - `js/renderer.js` — Pure ASCII & Binary Art renderer (celestial spheres, tilted planetary rings, 3D rotating wireframe globe on hover, deep-space constellations, and binary comets).
@@ -16,6 +16,7 @@ Modular Hybrid Command Deck + Live `@aukabanana` GitHub Explorer rendered in 100
 - **Drag a Probe (`[recon]`, `[blueprint]`, `[glyph]`, `[scribe]`)**: Slingshot across gravity wells.
 - **Drag Empty Space**: Pan the camera freely across the solar system.
 - **Press `Space`**: Lock the camera onto the hovered planet or active probe (press `Space` or `Esc` to unlock back to `[sol]`).
+- **Press `m` / `Tab`**: `m` toggles audio mute/unmute; `-` / `+` adjusts master volume; `Tab` opens the parameters inspector to adjust volume, tune keys, transpositions, and scales.
 - **Hover Any Planet**: Projects a rotating 3D ASCII wireframe globe + live GitHub telemetry and saved note count.
 - **Command Input Bar**:
   - Dispatch `[blueprint]` with `tree` to fetch the live GitHub file tree of the orbited repo.

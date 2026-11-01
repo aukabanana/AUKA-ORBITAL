@@ -23,6 +23,9 @@ resize();
 // Load persistent state & initialize positions
 loadPersistentState();
 updatePlanetPositions();
+if (typeof applyTuning === 'function') applyTuning();
+if (typeof syncAudioUI === 'function') syncAudioUI();
+syncSlidersFromConfig();
 
 probes.forEach(p => {
   const b = bodies.find(bd => bd.id === p.targetBodyId) || bodies[0];
@@ -185,6 +188,39 @@ function updateBodyOrbitRadius(bodyId, rawVal) {
   savePersistentState();
 }
 
+function syncSlidersFromConfig() {
+  const setEl = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.value = val;
+  };
+  setEl('slPlanetSpeed', config.planetSpeedMult ?? 1.0);
+  setEl('slProbeSpeed', config.probeSpeedMult ?? 1.0);
+  setEl('slGravity', config.gravityMult ?? 1.0);
+  setEl('slTrail', config.trailLength ?? 48);
+  const gridPct = Math.round(((config.gridAlpha ?? 0.085) / 0.11) * 100);
+  setEl('slGrid', gridPct);
+  setEl('slScale', config.spriteScale ?? 1.0);
+
+  const setTxt = (id, txt) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = txt;
+  };
+  setTxt('valPlanetSpeed', `${(config.planetSpeedMult ?? 1.0).toFixed(1)}x`);
+  setTxt('valProbeSpeed', `${(config.probeSpeedMult ?? 1.0).toFixed(1)}x`);
+  setTxt('valGravity', `${(config.gravityMult ?? 1.0).toFixed(1)}x`);
+  setTxt('valTrail', String(config.trailLength ?? 48).padStart(3, '0'));
+  setTxt('valGrid', `${String(gridPct).padStart(3, '0')}%`);
+  setTxt('valScale', `${(config.spriteScale ?? 1.0).toFixed(1)}x`);
+
+  const lblEl = document.getElementById('labelStateText');
+  if (lblEl) {
+    lblEl.textContent = config.showLabels ? '[1]' : '[0]';
+    lblEl.className = config.showLabels ? 'text-cyan-300' : 'text-slate-600';
+  }
+
+  if (typeof syncAudioUI === 'function') syncAudioUI();
+}
+
 function resetSettings() {
   document.getElementById('slPlanetSpeed').value = 1.0;
   document.getElementById('slProbeSpeed').value = 1.0;
@@ -195,6 +231,15 @@ function resetSettings() {
   config.showLabels = true;
   document.getElementById('labelStateText').textContent = '[1]';
   document.getElementById('labelStateText').className = 'text-cyan-300';
+
+  config.masterVolume = 0.7;
+  config.tuningKey = 'E';
+  config.tuneSemitones = 0;
+  config.tuningPreset = 'std_e';
+  config.tuningHz = 440;
+  if (typeof setMasterVolume === 'function') setMasterVolume(0.7);
+  if (typeof applyTuning === 'function') applyTuning();
+  if (typeof syncAudioUI === 'function') syncAudioUI();
 
   planetOrbitRadii = {};
   bodies.forEach(b => {
@@ -278,6 +323,12 @@ window.addEventListener('keydown', (e) => {
     // Unlock camera in-place without snapping back to (0,0)
     unlockCameraInPlace();
     document.getElementById('spawnPopover').classList.add('hidden');
+  } else if (e.key.toLowerCase() === 'm') {
+    toggleAudio();
+  } else if (e.key === '-' || e.key === '_') {
+    adjustVolumeDelta(-0.05);
+  } else if (e.key === '=' || e.key === '+') {
+    adjustVolumeDelta(0.05);
   }
 });
 
@@ -289,9 +340,8 @@ function renderAiMenu() {
       <button
         type="button"
         onclick="chooseAiFromBar('${p.id}')"
-        class="w-full px-2.5 py-1.5 text-left flex items-center justify-between text-xs transition ${
-          isSel ? 'bg-slate-800/90 text-white' : 'hover:bg-slate-900/80 text-slate-400'
-        }"
+        class="w-full px-2.5 py-1.5 text-left flex items-center justify-between text-xs transition ${isSel ? 'bg-slate-800/90 text-white' : 'hover:bg-slate-900/80 text-slate-400'
+      }"
       >
         <span style="color:${p.color}" class="font-semibold">[${p.short}]</span>
         <span class="text-slate-500">${p.role}</span>
@@ -334,8 +384,8 @@ canvas.addEventListener('mousedown', (e) => {
 
   // Check if user clicked the on-canvas directional orbit beacon
   if (beaconHitBox &&
-      e.clientX >= beaconHitBox.x && e.clientX <= beaconHitBox.x + beaconHitBox.w &&
-      e.clientY >= beaconHitBox.y && e.clientY <= beaconHitBox.y + beaconHitBox.h) {
+    e.clientX >= beaconHitBox.x && e.clientX <= beaconHitBox.x + beaconHitBox.w &&
+    e.clientY >= beaconHitBox.y && e.clientY <= beaconHitBox.y + beaconHitBox.h) {
     lockCameraToSystem(beaconHitBox.targetSystem);
     return;
   }
@@ -403,8 +453,8 @@ window.addEventListener('mousemove', (e) => {
 
   // Check hover on directional orbit beacon
   if (beaconHitBox &&
-      e.clientX >= beaconHitBox.x && e.clientX <= beaconHitBox.x + beaconHitBox.w &&
-      e.clientY >= beaconHitBox.y && e.clientY <= beaconHitBox.y + beaconHitBox.h) {
+    e.clientX >= beaconHitBox.x && e.clientX <= beaconHitBox.x + beaconHitBox.w &&
+    e.clientY >= beaconHitBox.y && e.clientY <= beaconHitBox.y + beaconHitBox.h) {
     hoveredBeacon = beaconHitBox.targetSystem;
     canvas.style.cursor = 'pointer';
   } else {
@@ -435,8 +485,8 @@ window.addEventListener('mousemove', (e) => {
   const activeStar = getClosestSystemCenter(world.x, world.y);
   const currR = Math.hypot(world.x - activeStar.x, world.y - activeStar.y);
   if (prevMouseRadiusFromCenter !== null &&
-      Math.abs(currR - prevMouseRadiusFromCenter) > 1.5 &&
-      Math.abs(currR - prevMouseRadiusFromCenter) < 85) {
+    Math.abs(currR - prevMouseRadiusFromCenter) > 1.5 &&
+    Math.abs(currR - prevMouseRadiusFromCenter) < 85) {
     bodies.forEach((b, idx) => {
       if (b.orbitRadius <= 0 || b.parentBodyId !== activeStar.id) return;
       const crossed =

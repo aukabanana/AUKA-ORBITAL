@@ -29,6 +29,8 @@
       <span class="text-slate-700">/</span>
       <span><span class="text-purple-300">tab</span> config</span>
       <span class="text-slate-700">/</span>
+      <span><span class="text-emerald-300">m</span> audio</span>
+      <span class="text-slate-700">/</span>
       <span><span class="text-emerald-300">h</span> zen</span>
     </div>
   </div>
@@ -168,6 +170,61 @@
         </div>
       </div>
 
+      <!-- AUDIO SYNTH VOL & KEY TUNER -->
+      <div class="px-3.5 py-1.5 hairline-t hairline-b flex items-center justify-between bg-slate-950/50">
+        <span class="text-cyan-300 font-semibold">:: AUDIO_SYNTH & KEY_TUNER</span>
+        <div class="flex items-center gap-2 text-xs">
+          <button type="button" id="btnTuningHz" onclick="toggleTuningHz()" class="text-xs text-purple-300 hover:text-white transition" title="Toggle Concert 440Hz / Cosmic 432Hz">
+            [440hz]
+          </button>
+        </div>
+      </div>
+
+      <div class="p-3.5 space-y-2.5">
+        <div class="grid grid-cols-12 items-center gap-3">
+          <span class="col-span-5 text-slate-400">master_volume</span>
+          <input id="slVolume" type="range" min="0" max="100" step="5" value="70" oninput="updateVolume(this.value)" class="col-span-5" />
+          <span id="valVolume" class="col-span-2 text-right text-emerald-400">070%</span>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <span class="text-slate-400">tune_key</span>
+          <div id="keyButtonGroup" class="flex items-center gap-1">
+            <button type="button" onclick="setTuningKey('C')" id="btnKey_C" class="px-1.5 py-0.5 border border-slate-800 text-slate-500 hover:text-amber-300 text-xs transition">C</button>
+            <button type="button" onclick="setTuningKey('D')" id="btnKey_D" class="px-1.5 py-0.5 border border-slate-800 text-slate-500 hover:text-amber-300 text-xs transition">D</button>
+            <button type="button" onclick="setTuningKey('E')" id="btnKey_E" class="px-1.5 py-0.5 border border-amber-400/80 bg-amber-500/20 text-amber-300 text-xs font-semibold transition">E</button>
+            <button type="button" onclick="setTuningKey('F')" id="btnKey_F" class="px-1.5 py-0.5 border border-slate-800 text-slate-500 hover:text-amber-300 text-xs transition">F</button>
+            <button type="button" onclick="setTuningKey('G')" id="btnKey_G" class="px-1.5 py-0.5 border border-slate-800 text-slate-500 hover:text-amber-300 text-xs transition">G</button>
+            <button type="button" onclick="setTuningKey('A')" id="btnKey_A" class="px-1.5 py-0.5 border border-slate-800 text-slate-500 hover:text-amber-300 text-xs transition">A</button>
+            <button type="button" onclick="setTuningKey('B')" id="btnKey_B" class="px-1.5 py-0.5 border border-slate-800 text-slate-500 hover:text-amber-300 text-xs transition">B</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-12 items-center gap-3">
+          <span class="col-span-5 text-slate-400">pitch_transpose</span>
+          <input id="slTranspose" type="range" min="-12" max="12" step="1" value="0" oninput="updateTranspose(this.value)" class="col-span-5" />
+          <span id="valTranspose" class="col-span-2 text-right text-amber-300">+0 st [E]</span>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <span class="text-slate-400">guitar_tuning</span>
+          <div class="flex items-center gap-1">
+            <button type="button" id="btnPreset_std_e" onclick="setTuningPreset('std_e')" class="px-2 py-0.5 border border-cyan-400/80 bg-cyan-500/20 text-cyan-300 text-xs transition">
+              std_e
+            </button>
+            <button type="button" id="btnPreset_drop_d" onclick="setTuningPreset('drop_d')" class="px-2 py-0.5 border border-slate-800 text-slate-500 hover:text-cyan-300 text-xs transition">
+              drop_d
+            </button>
+            <button type="button" id="btnPreset_dadgad" onclick="setTuningPreset('dadgad')" class="px-2 py-0.5 border border-slate-800 text-slate-500 hover:text-cyan-300 text-xs transition">
+              dadgad
+            </button>
+            <button type="button" id="btnPreset_pentatonic" onclick="setTuningPreset('pentatonic')" class="px-2 py-0.5 border border-slate-800 text-slate-500 hover:text-cyan-300 text-xs transition">
+              penta
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- PER-PLANET ORBIT RADIUS TUNER -->
       <div class="px-3.5 py-1.5 hairline-t hairline-b flex items-center justify-between bg-slate-950/50">
         <span class="text-cyan-300 font-semibold">:: PLANET_ORBIT_RADIUS</span>
@@ -182,6 +239,7 @@
         <button type="button" onclick="toggleAudio()" class="flex items-center gap-1.5 hover:text-white transition">
           <span>audio_synth:</span>
           <span id="audioStateText" class="text-slate-500">[0]</span>
+          <span id="audioVolBadge" class="text-xs text-slate-600">(70%)</span>
         </button>
 
         <button type="button" onclick="toggleAsciiHud()" class="flex items-center gap-1.5 hover:text-white transition">

@@ -88,7 +88,7 @@ function drawOrbitSystemBridge(ctx, width, height) {
   ctx.setLineDash([]);
 
   // Animated binary pulse packets traveling along the inter-orbital bridge
-  ctx.font = '10px monospace';
+  ctx.font = '16px monospace';
   ctx.textAlign = 'center';
   for (let i = 1; i <= 5; i++) {
     const t = ((simTime * 0.08 + i * 0.2) % 1);
@@ -627,8 +627,8 @@ function updateAsciiRadarWidget() {
 
   // Expanded 23x11 dot-matrix radar (more pixels to show bodies clearly)
   const cols = 23;
-  const rows = 11;
-  const grid = Array.from({ length: rows }, () => Array(cols).fill('·'));
+  const rows = 23;
+  const grid = Array.from({ length: rows }, () => Array(cols).fill('.'));
   const cx = Math.floor(cols / 2);
   const cy = Math.floor(rows / 2);
   grid[cy][cx] = '@';
