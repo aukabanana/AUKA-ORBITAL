@@ -18,8 +18,9 @@
   <!-- TOP LEFT: Clean Minimal 2-Line ASCII Header & Key Hints (Zero Button Clutter) -->
   <div id="topHint" class="fixed top-5 left-6 z-10 pointer-events-none space-y-1 transition-opacity duration-200">
     <div class="flex flex-wrap items-center gap-3 text-xs tracking-wider">
-      <span class="text-cyan-400 font-semibold">[SYS::ASCII_ORBIT_02]</span>
+      <span class="text-cyan-400 font-semibold">[SYS::ASCII_ORBITS_03]</span>
       <span id="ghSyncStatus" class="text-slate-500">[GH::SYNCING]</span>
+      <span id="solarEphemStatus" class="text-amber-400/90">[SOLAR::J2000_1D/S]</span>
       <span id="ctfScoreBadge" class="text-emerald-400/90 hidden">[FLAGS::00]</span>
     </div>
     <div class="flex flex-wrap items-center gap-2.5 text-xs text-slate-500">
@@ -41,7 +42,8 @@
   <div id="asciiTelemetryBox"
     class="fixed top-5 right-6 z-10 hidden sm:block text-right transition-opacity duration-200 select-none">
     <pre id="asciiArtWidget" class="text-[11px] leading-[1.15] text-cyan-400/75 font-mono pointer-events-none"></pre>
-    <pre class="text-[11px] leading-[1.2] text-cyan-400/75 font-mono pointer-events-auto">| <span class="text-slate-500">orbit ::</span> <span id="btnOrbitSol" onclick="lockCameraToSystem('sol')" class="cursor-pointer text-amber-300 font-semibold">[01::sol]</span>               <span id="btnOrbitGh" onclick="lockCameraToSystem('github')" class="cursor-pointer text-slate-500 hover:text-emerald-300">[02::github]</span> |
+    <pre class="text-[11px] leading-[1.2] text-cyan-400/75 font-mono pointer-events-auto">| <span class="text-slate-500">orbit ::</span> <span id="btnOrbitSol" onclick="lockCameraToSystem('sol')" class="cursor-pointer text-amber-300 font-semibold">[01::sol]</span> <span id="btnOrbitGh" onclick="lockCameraToSystem('github')" class="cursor-pointer text-slate-500 hover:text-emerald-300">[02::gh]</span> <span id="btnOrbitSolar" onclick="lockCameraToSystem('solar')" class="cursor-pointer text-slate-500 hover:text-cyan-300">[03::solar]</span>        |
+| <span class="text-slate-500">ephem ::</span> <span id="btnTimeReal" onclick="setSolarTimeScale('real')" class="cursor-pointer text-slate-500 hover:text-cyan-300">[1:1]</span>  <span id="btnTimeHour" onclick="setSolarTimeScale('hour')" class="cursor-pointer text-slate-500 hover:text-cyan-300">[1h/s]</span>  <span id="btnTimeDay" onclick="setSolarTimeScale('day')" class="cursor-pointer text-amber-300 font-semibold">[1d/s]</span>  <span id="btnTimeMonth" onclick="setSolarTimeScale('month')" class="cursor-pointer text-slate-500 hover:text-cyan-300">[30d/s]</span>  <span onclick="syncSolarTimeNow()" class="cursor-pointer text-cyan-400 hover:text-white">[now]</span> |
 | <span class="text-slate-500">track ::</span> <span onclick="cycleCameraLock(-1)" class="cursor-pointer text-slate-400 hover:text-cyan-300">[&lt;]</span> <span onclick="cycleCameraLock(1)" class="cursor-pointer text-slate-400 hover:text-cyan-300">[&gt;]</span>          <span id="btnCamProbe" onclick="lockCameraToActiveProbe()" class="cursor-pointer text-slate-500 hover:text-cyan-300">[probe]</span>      <span id="btnCamFree" onclick="unlockCameraInPlace()" class="cursor-pointer text-slate-500 hover:text-purple-300">[free]</span> |
 +-----------------------------------------------+</pre>
     <div id="binaryStreamLine" class="text-[11px] text-purple-400/65 mt-1 tracking-widest pointer-events-none"></div>
@@ -184,6 +186,16 @@
             class="col-span-5" />
           <span id="valScale" class="col-span-2 text-right text-pink-300">1.0x</span>
         </div>
+
+        <div class="flex items-center justify-between">
+          <span class="text-slate-400">solar_ephemeris</span>
+          <div class="flex items-center gap-1">
+            <button type="button" onclick="setSolarTimeScale('real')" class="px-1.5 py-0.5 border border-slate-800 text-slate-500 hover:text-cyan-300 transition">1:1 UTC</button>
+            <button type="button" onclick="setSolarTimeScale('hour')" class="px-1.5 py-0.5 border border-slate-800 text-slate-500 hover:text-cyan-300 transition">1h/s</button>
+            <button type="button" onclick="setSolarTimeScale('day')" class="px-1.5 py-0.5 border border-amber-400/80 bg-amber-500/20 text-amber-300 font-semibold transition">1d/s</button>
+            <button type="button" onclick="setSolarTimeScale('month')" class="px-1.5 py-0.5 border border-slate-800 text-slate-500 hover:text-cyan-300 transition">30d/s</button>
+          </div>
+        </div>
       </div>
 
       <!-- TAB 2: AUDIO SYNTH & TUNER -->
@@ -262,9 +274,11 @@
               class="text-amber-300 font-semibold transition">[01::sol]</button>
             <button type="button" id="btnRadFilterGh" onclick="setRadiusFilter('github')"
               class="text-slate-500 hover:text-emerald-300 transition">[02::github]</button>
+            <button type="button" id="btnRadFilterSolar" onclick="setRadiusFilter('solar')"
+              class="text-slate-500 hover:text-cyan-300 transition">[03::solar]</button>
           </div>
         </div>
-        <div id="planetRadiusList" class="px-3.5 py-2.5 space-y-2 max-h-48 overflow-y-auto"></div>
+        <div id="planetRadiusList" class="pl-3.5 pr-2 py-2.5 space-y-2 max-h-48 overflow-y-auto"></div>
       </div>
 
       <div class="px-3.5 py-2 hairline-t flex items-center justify-between text-slate-400">

@@ -48,11 +48,41 @@ input[type="range"]:hover::-webkit-slider-thumb {
   background: #ffffff;
 }
 
-pre::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+/* ========================================================================== */
+/* Retro Monospace Scrollbars — Synchronized with Active Theme Accent        */
+/* ========================================================================== */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-accent, #38bdf8) rgba(6, 9, 20, 0.85);
 }
 
-pre::-webkit-scrollbar-thumb {
-  background: rgba(56, 189, 248, 0.3);
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(6, 9, 20, 0.85);
+  border-left: 1px solid rgba(56, 189, 248, 0.15);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--theme-accent, #38bdf8);
+  border-radius: 1px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #ffffff;
+  box-shadow: 0 0 8px var(--theme-accent, #38bdf8);
+}
+
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+::-webkit-scrollbar-corner {
+  background: rgba(6, 9, 20, 0.85);
 }

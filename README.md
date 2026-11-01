@@ -1,6 +1,11 @@
 # AUKA // ORBITAL ASCII & BINARY TELEMETRY (Draft 2)
 
-Modular Hybrid Command Deck + Live `@aukabanana` GitHub Explorer rendered in 100% ASCII & Binary Art.
+Modular Hybrid Command Deck + Live `@aukabanana` GitHub Explorer + Realistic Solar System & Planetary Moons rendered in 100% ASCII & Binary Art.
+
+## Orbit Systems
+- **System 01 (`[01::sol]`)**: Sol Workspace Core with primary gravity well, CTF exploitation nodes, and software engineering coursework sectors.
+- **System 02 (`[02::gh]`)**: Live GitHub Orbital Hub mapped to real `@aukabanana` repositories via the GitHub REST API.
+- **System 03 (`[03::solar]`)**: Real Solar System with central Sun (`Helios`), all 8 major planets (Mercury to Neptune), 14 natural satellites/moons, and J2000 Ephemeris orbits in realistic time (`1:1 UTC`, `1h/s`, `1d/s`, `30d/s`).
 
 ## Project Architecture
 - `index.html` — Entry point and structural HUD layout (zero emojis/icons, works directly via `file://` double-click or local server).

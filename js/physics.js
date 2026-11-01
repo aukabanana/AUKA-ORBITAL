@@ -20,7 +20,7 @@ function updateLockedCamera() {
   if (!camera.lockedTarget) {
     // Keep activeSystem synced to whichever star is closer to current camera view
     const closestStar = getClosestSystemCenter(camera.x, camera.y);
-    camera.activeSystem = closestStar.id === 'gh_core' ? 'github' : 'sol';
+    camera.activeSystem = getSystemKeyForBody(closestStar);
     updateCameraLockBadge();
     return;
   }
@@ -33,7 +33,7 @@ function updateLockedCamera() {
     if (b) {
       targetX = b.x;
       targetY = b.y;
-      camera.activeSystem = (b.id === 'gh_core' || b.parentBodyId === 'gh_core') ? 'github' : 'sol';
+      camera.activeSystem = getSystemKeyForBody(b);
     } else {
       camera.lockedTarget = null;
     }
@@ -43,7 +43,7 @@ function updateLockedCamera() {
       targetX = p.x;
       targetY = p.y;
       const closestStar = getClosestSystemCenter(p.x, p.y);
-      camera.activeSystem = closestStar.id === 'gh_core' ? 'github' : 'sol';
+      camera.activeSystem = getSystemKeyForBody(closestStar);
     } else {
       camera.lockedTarget = null;
     }
@@ -88,18 +88,24 @@ function unlockCameraInPlace() {
 function lockCameraToSystem(sysKey) {
   if (sysKey === 'github') {
     camera.activeSystem = 'github';
+    if (camera.zoom < 0.75) camera.zoom = 1.0;
     setCameraLock('body', 'gh_core', 'gh::aukabanana');
-    // Select scribe probe if user jumps to GitHub orbit
     const ghProbe = probes.find(p => p.id === 'scribe');
     if (ghProbe) {
       selectedProbeId = ghProbe.id;
       if (typeof syncBottomBarProbe === 'function') syncBottomBarProbe();
     }
+  } else if (sysKey === 'solar') {
+    camera.activeSystem = 'solar';
+    if (camera.zoom > 0.68) camera.zoom = 0.56;
+    setCameraLock('body', 'solar_core', 'helios::sun');
   } else {
     camera.activeSystem = 'sol';
+    if (camera.zoom < 0.75) camera.zoom = 1.0;
     setCameraLock('body', 'core', 'sol');
   }
-  if (typeof playSpacePing === 'function') playSpacePing(sysKey === 'github' ? 659.25 : 523.25, 0.22);
+  const freqMap = { sol: 523.25, github: 659.25, solar: 783.99 };
+  if (typeof playSpacePing === 'function') playSpacePing(freqMap[sysKey] || 523.25, 0.22);
 }
 
 function lockCameraToActiveProbe() {
@@ -110,8 +116,7 @@ function lockCameraToActiveProbe() {
 }
 
 function cycleCameraLock(step = 1) {
-  const sysParentId = camera.activeSystem === 'github' ? 'gh_core' : 'core';
-  const sysBodies = bodies.filter(b => b.id === sysParentId || b.parentBodyId === sysParentId);
+  const sysBodies = bodies.filter(b => getSystemKeyForBody(b) === camera.activeSystem);
   const pool = sysBodies.length > 0 ? sysBodies : bodies;
 
   let curIdx = -1;
@@ -122,25 +127,69 @@ function cycleCameraLock(step = 1) {
   const target = pool[nextIdx];
   if (target) {
     setCameraLock('body', target.id, target.name);
+    if (target.isMoon && camera.zoom < 1.15) {
+      camera.zoom = 1.3;
+    }
     if (typeof playSpacePing === 'function') playSpacePing(587.33, 0.18);
   }
+}
+
+function setSolarTimeScale(mode) {
+  const valid = ['real', 'hour', 'day', 'month'];
+  if (!valid.includes(mode)) return;
+  config.solarTimeScale = mode;
+  if (mode === 'real') {
+    solarSimTimeMs = Date.now();
+    bodies.forEach(b => { b._moonInitialized = false; });
+  }
+  updateCameraLockBadge();
+  if (typeof savePersistentState === 'function') savePersistentState();
+  if (typeof playSpacePing === 'function') playSpacePing(620, 0.15);
+}
+
+function syncSolarTimeNow() {
+  solarSimTimeMs = Date.now();
+  bodies.forEach(b => { b._moonInitialized = false; });
+  updatePlanetPositions();
+  if (typeof playSpacePing === 'function') playSpacePing(880, 0.2);
 }
 
 function updateCameraLockBadge() {
   const btnSol = document.getElementById('btnOrbitSol');
   const btnGh = document.getElementById('btnOrbitGh');
+  const btnSolar = document.getElementById('btnOrbitSolar');
   const btnProbe = document.getElementById('btnCamProbe');
   const btnFree = document.getElementById('btnCamFree');
 
   if (btnSol && btnGh) {
-    const isGh = camera.activeSystem === 'github';
-    btnSol.className = !isGh
+    const sys = camera.activeSystem;
+    btnSol.className = sys === 'sol'
       ? 'cursor-pointer text-amber-300 font-semibold'
       : 'cursor-pointer text-slate-500 hover:text-amber-300';
-    btnGh.className = isGh
+    btnGh.className = sys === 'github'
       ? 'cursor-pointer text-emerald-300 font-semibold'
       : 'cursor-pointer text-slate-500 hover:text-emerald-300';
+    if (btnSolar) {
+      btnSolar.className = sys === 'solar'
+        ? 'cursor-pointer text-cyan-300 font-semibold'
+        : 'cursor-pointer text-slate-500 hover:text-cyan-300';
+    }
   }
+
+  const timeModes = [
+    { id: 'btnTimeReal', key: 'real' },
+    { id: 'btnTimeHour', key: 'hour' },
+    { id: 'btnTimeDay', key: 'day' },
+    { id: 'btnTimeMonth', key: 'month' }
+  ];
+  timeModes.forEach(tm => {
+    const el = document.getElementById(tm.id);
+    if (!el) return;
+    const isAct = (config.solarTimeScale || 'day') === tm.key;
+    el.className = isAct
+      ? 'cursor-pointer text-amber-300 font-semibold'
+      : 'cursor-pointer text-slate-500 hover:text-cyan-300';
+  });
 
   if (btnProbe) {
     const isProbeLocked = camera.lockedTarget && camera.lockedTarget.type === 'probe';
@@ -158,6 +207,22 @@ function updateCameraLockBadge() {
 }
 
 function updatePlanetPositions() {
+  const dtSec = 0.016;
+  const scaleMode = config.solarTimeScale || 'day';
+  let deltaDays = 0;
+
+  if (scaleMode === 'real') {
+    const now = Date.now();
+    deltaDays = (now - solarSimTimeMs) / 86400000;
+    solarSimTimeMs = now;
+  } else {
+    const daysPerRealSec = scaleMode === 'hour' ? (1 / 24) : (scaleMode === 'month' ? 30 : 1);
+    deltaDays = daysPerRealSec * dtSec * config.planetSpeedMult;
+    solarSimTimeMs += deltaDays * 86400000;
+  }
+
+  const daysSinceJ2000 = (solarSimTimeMs - J2000_EPOCH_MS) / 86400000;
+
   bodies.forEach(b => {
     if (b.ringVibration > 0.005) {
       b.ringVibration *= 0.95;
@@ -167,7 +232,21 @@ function updatePlanetPositions() {
     if (b.fixedPos) return;
     const parent = getParentStar(b);
     if (b.orbitRadius > 0) {
-      b.angle += b.orbitSpeed * config.planetSpeedMult;
+      if (b.isRealSolar && b.orbitalPeriodDays) {
+        const j2000Rad = ((b.j2000LonDeg || 0) * Math.PI) / 180;
+        if (!b.isMoon || scaleMode === 'real' || scaleMode === 'hour' || !b._moonInitialized) {
+          b.angle = j2000Rad + (2 * Math.PI * daysSinceJ2000) / b.orbitalPeriodDays;
+          b._moonInitialized = true;
+        } else {
+          const rawDelta = (2 * Math.PI * deltaDays) / b.orbitalPeriodDays;
+          const sign = Math.sign(rawDelta);
+          const mag = Math.abs(rawDelta);
+          const stepRad = mag > 0.024 ? 0.024 + Math.log1p((mag - 0.024) * 10) * 0.009 : mag;
+          b.angle += sign * stepRad;
+        }
+      } else {
+        b.angle += b.orbitSpeed * config.planetSpeedMult;
+      }
       b.x = parent.x + Math.cos(b.angle) * b.orbitRadius;
       b.y = parent.y + Math.sin(b.angle) * b.orbitRadius;
     } else {
@@ -250,7 +329,7 @@ function spawnLaserPacket(fromX, fromY, toX, toY, color, onArrive = null) {
 }
 
 function spawnBinaryComet() {
-  const center = camera.activeSystem === 'github' ? ORBIT_SYSTEMS.github : ORBIT_SYSTEMS.sol;
+  const center = ORBIT_SYSTEMS[camera.activeSystem] || ORBIT_SYSTEMS.sol;
   const side = Math.random() > 0.5 ? 1 : -1;
   const startX = center.x + side * 780;
   const startY = center.y + (Math.random() - 0.5) * 560;
@@ -275,7 +354,7 @@ function interceptRogueSatellite(probe, rogueBody) {
   const idx = bodies.indexOf(rogueBody);
   if (idx === -1) return;
 
-  const homeStar = getParentStar(rogueBody);
+  const homeStar = getRootStar(rogueBody);
   bodies.splice(idx, 1);
   ctfFlagsCaptured++;
   savePersistentState();
@@ -293,7 +372,7 @@ function interceptRogueSatellite(probe, rogueBody) {
 
   spawnFloatingText(rogueBody.x, rogueBody.y, `[FLAG_CAPTURED :: ${flagStr}]`, '#34d399');
   probe.statusText = `pwned :: 0x${flagHex}`;
-  probe.targetBodyId = homeStar.id === 'gh_core' ? 'gh_core' : 'ctf';
+  probe.targetBodyId = homeStar.id === 'gh_core' ? 'gh_core' : (homeStar.id === 'solar_core' ? 'sol_earth' : 'ctf');
   probe.mode = 'ORBIT';
 
   spawnLaserPacket(rogueBody.x, rogueBody.y, homeStar.x, homeStar.y, '#34d399', () => {

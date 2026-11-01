@@ -71,24 +71,29 @@ function drawConstellations(ctx, width, height) {
 function drawOrbitSystemBridge(ctx, width, height) {
   const sol = bodies[0];
   const gh = bodies.find(b => b.id === 'gh_core');
+  const solar = bodies.find(b => b.id === 'solar_core');
   if (!sol || !gh) return;
 
   const sSol = worldToScreen(sol.x, sol.y, width, height);
   const sGh = worldToScreen(gh.x, gh.y, width, height);
+  const sSolar = solar ? worldToScreen(solar.x, solar.y, width, height) : null;
 
   ctx.save();
-  // Faint ASCII / Binary bridge connecting SOL_ORBIT and GH_ORBIT
+  // Faint ASCII / Binary bridges connecting 01::SOL <-> 02::GH <-> 03::SOLAR
   ctx.strokeStyle = 'rgba(52, 211, 153, 0.16)';
   ctx.setLineDash([4, 8]);
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(sSol.x, sSol.y);
   ctx.lineTo(sGh.x, sGh.y);
+  if (sSolar) {
+    ctx.lineTo(sSolar.x, sSolar.y);
+  }
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Animated binary pulse packets traveling along the inter-orbital bridge
-  ctx.font = '16px monospace';
+  // Animated binary pulse packets traveling along inter-orbital bridges
+  ctx.font = '14px monospace';
   ctx.textAlign = 'center';
   for (let i = 1; i <= 5; i++) {
     const t = ((simTime * 0.08 + i * 0.2) % 1);
@@ -98,43 +103,58 @@ function drawOrbitSystemBridge(ctx, width, height) {
       ctx.fillStyle = 'rgba(52, 211, 153, 0.45)';
       ctx.fillText(i % 2 === 0 ? '0110' : '::', Math.round(bx), Math.round(by - 6));
     }
+    if (sSolar) {
+      const bx2 = sGh.x + (sSolar.x - sGh.x) * t;
+      const by2 = sGh.y + (sSolar.y - sGh.y) * t;
+      if (bx2 >= 0 && bx2 <= width && by2 >= 0 && by2 <= height) {
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.45)';
+        ctx.fillText(i % 2 === 0 ? '1001' : '::', Math.round(bx2), Math.round(by2 - 6));
+      }
+    }
   }
 
-  // Off-screen clickable directional beacon to jump to the other orbit
+  // Off-screen clickable directional beacon to jump to the next/adjacent orbit
   beaconHitBox = null;
-  const ghOffscreen = sGh.x < 60 || sGh.x > width - 60 || sGh.y < 60 || sGh.y > height - 60;
-  const solOffscreen = sSol.x < 60 || sSol.x > width - 60 || sSol.y < 60 || sSol.y > height - 60;
-
-  if (ghOffscreen && !zenMode) {
+  if (!zenMode) {
     const boxW = 240;
     const boxH = 32;
-    const bx = width - boxW - 24;
-    const by = Math.max(195, Math.min(height - 150, sGh.y - boxH / 2));
-    beaconHitBox = { x: bx, y: by, w: boxW, h: boxH, targetSystem: 'github' };
-
-    const isHov = hoveredBeacon === 'github';
-    ctx.font = isHov ? 'bold 11px monospace' : '11px monospace';
-    ctx.fillStyle = isHov ? '#34d399' : 'rgba(52, 211, 153, 0.85)';
-    ctx.textAlign = 'right';
-    ctx.fillText(':: [02::gh_orbit] --->', width - 26, by + 14);
-    ctx.font = '10px monospace';
-    ctx.fillStyle = isHov ? '#e2e8f0' : 'rgba(148, 163, 184, 0.7)';
-    ctx.fillText('[click / key:2]', width - 26, by + 27);
-  } else if (solOffscreen && !zenMode) {
-    const boxW = 240;
-    const boxH = 32;
-    const bx = 24;
-    const by = Math.max(195, Math.min(height - 150, sSol.y - boxH / 2));
-    beaconHitBox = { x: bx, y: by, w: boxW, h: boxH, targetSystem: 'sol' };
-
-    const isHov = hoveredBeacon === 'sol';
-    ctx.font = isHov ? 'bold 11px monospace' : '11px monospace';
-    ctx.fillStyle = isHov ? '#f59e0b' : 'rgba(245, 158, 11, 0.85)';
-    ctx.textAlign = 'left';
-    ctx.fillText('<--- [01::sol_orbit] ::', 26, by + 14);
-    ctx.font = '10px monospace';
-    ctx.fillStyle = isHov ? '#e2e8f0' : 'rgba(148, 163, 184, 0.7)';
-    ctx.fillText('[click / key:1]', 26, by + 27);
+    if (camera.activeSystem === 'sol') {
+      const by = Math.max(195, Math.min(height - 150, sGh.y - boxH / 2));
+      const bx = width - boxW - 24;
+      beaconHitBox = { x: bx, y: by, w: boxW, h: boxH, targetSystem: 'github' };
+      const isHov = hoveredBeacon === 'github';
+      ctx.font = isHov ? 'bold 11px monospace' : '11px monospace';
+      ctx.fillStyle = isHov ? '#34d399' : 'rgba(52, 211, 153, 0.85)';
+      ctx.textAlign = 'right';
+      ctx.fillText(':: [02::gh_orbit] --->', width - 26, by + 14);
+      ctx.font = '10px monospace';
+      ctx.fillStyle = isHov ? '#e2e8f0' : 'rgba(148, 163, 184, 0.7)';
+      ctx.fillText('[click / key:2]', width - 26, by + 27);
+    } else if (camera.activeSystem === 'github' && sSolar) {
+      const by = Math.max(195, Math.min(height - 150, sSolar.y - boxH / 2));
+      const bx = width - boxW - 24;
+      beaconHitBox = { x: bx, y: by, w: boxW, h: boxH, targetSystem: 'solar' };
+      const isHov = hoveredBeacon === 'solar';
+      ctx.font = isHov ? 'bold 11px monospace' : '11px monospace';
+      ctx.fillStyle = isHov ? '#38bdf8' : 'rgba(56, 189, 248, 0.85)';
+      ctx.textAlign = 'right';
+      ctx.fillText(':: [03::solar_sys] --->', width - 26, by + 14);
+      ctx.font = '10px monospace';
+      ctx.fillStyle = isHov ? '#e2e8f0' : 'rgba(148, 163, 184, 0.7)';
+      ctx.fillText('[click / key:3]', width - 26, by + 27);
+    } else if (camera.activeSystem === 'solar') {
+      const by = Math.max(195, Math.min(height - 150, sGh.y - boxH / 2));
+      const bx = 24;
+      beaconHitBox = { x: bx, y: by, w: boxW, h: boxH, targetSystem: 'github' };
+      const isHov = hoveredBeacon === 'github';
+      ctx.font = isHov ? 'bold 11px monospace' : '11px monospace';
+      ctx.fillStyle = isHov ? '#34d399' : 'rgba(52, 211, 153, 0.85)';
+      ctx.textAlign = 'left';
+      ctx.fillText('<--- [02::gh_orbit] ::', 26, by + 14);
+      ctx.font = '10px monospace';
+      ctx.fillStyle = isHov ? '#e2e8f0' : 'rgba(148, 163, 184, 0.7)';
+      ctx.fillText('[click / key:2]', 26, by + 27);
+    }
   }
 
   ctx.restore();
@@ -241,6 +261,19 @@ function drawAsciiCelestialBody(ctx, scrX, scrY, radius, body) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
+  if (body.isMoon) {
+    ctx.font = 'bold 10px monospace';
+    ctx.fillStyle = body.color;
+    const moonGlyph = config.shaderMode === 'pure_binary'
+      ? ((Math.floor(simTime * 4) & 1) ? '1' : '0')
+      : (body.radius >= 6 ? '(@)' : '(o)');
+    ctx.globalAlpha = 0.94;
+    ctx.fillText(moonGlyph, Math.round(scrX), Math.round(scrY));
+    ctx.globalAlpha = 1.0;
+    ctx.textBaseline = 'alphabetic';
+    return;
+  }
+
   if (body.styleType === 'rogue') {
     const glitch = (Math.floor(simTime * 8) & 1) ? '0xDEAD' : '101101';
     ctx.font = 'bold 11px monospace';
@@ -313,7 +346,10 @@ function drawAsciiCelestialBody(ctx, scrX, scrY, radius, body) {
 
       const norm = dist / radius;
       const light = (-dx * 0.55 - dy * 0.55) / radius;
-      const ch = pickBodyGlyph(norm, light, gx, gy, body.styleType);
+      let ch = pickBodyGlyph(norm, light, gx, gy, body.styleType);
+      if (body.styleType === 'gas_giant' && config.shaderMode !== 'pure_binary') {
+        ch = (Math.abs(gy) % 2 === 0) ? '=' : (gx === 1 && gy === 1 ? '@' : '#');
+      }
 
       if (body.styleType === 'sun') {
         ctx.fillStyle = norm < 0.45 ? '#fef08a' : (norm < 0.78 ? '#f59e0b' : '#ea580c');
@@ -321,6 +357,9 @@ function drawAsciiCelestialBody(ctx, scrX, scrY, radius, body) {
       } else if (body.styleType === 'gh_sun') {
         ctx.fillStyle = norm < 0.45 ? '#a7f3d0' : (norm < 0.78 ? '#34d399' : '#38bdf8');
         ctx.globalAlpha = 0.95;
+      } else if (body.styleType === 'gas_giant') {
+        ctx.fillStyle = (gx === 1 && gy === 1) ? '#f87171' : ((Math.abs(gy) % 2 === 0) ? body.color : (body.accent || '#fde68a'));
+        ctx.globalAlpha = light < -0.35 ? 0.58 : 0.94;
       } else {
         ctx.fillStyle = light < -0.25 ? (body.accent || '#334155') : body.color;
         ctx.globalAlpha = light < -0.35 ? 0.55 : 0.92;
@@ -350,15 +389,15 @@ function drawAsciiCelestialBody(ctx, scrX, scrY, radius, body) {
 
 function drawHoveredPlanetWireframe(ctx, body, width, height) {
   const scr = worldToScreen(body.x, body.y, width, height);
-  const r = body.radius * camera.zoom * config.spriteScale * 1.35;
+  const r = Math.max(10, body.radius * camera.zoom * config.spriteScale * 1.35);
 
   ctx.save();
   ctx.font = '9px monospace';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  const latSteps = 5;
-  const lonSteps = 10;
+  const latSteps = body.isMoon ? 3 : 5;
+  const lonSteps = body.isMoon ? 6 : 10;
   const rotY = simTime * 1.4;
   const tiltX = 0.35;
 
@@ -397,24 +436,48 @@ function drawHoveredPlanetWireframe(ctx, body, width, height) {
   const notesCount = getPlanetNotes(body.name).length;
   const isLockedHere = camera.lockedTarget && camera.lockedTarget.type === 'body' && camera.lockedTarget.id === body.id;
   const actionHint = isLockedHere ? '[click -> send probe]' : '[click -> lock cam]';
-  const lines = [
-    `:: SECTOR [${body.name.toUpperCase()}]`,
-    `repo   : ${meta.fullName || body.name}`,
-    `stack  : ${meta.stack} // ${meta.commits}`,
-    `action : ${actionHint} [notes:${notesCount}]`
-  ];
+
+  let lines;
+  if (body.isRealSolar && !body.fixedPos) {
+    const lonDeg = (((body.angle * 180) / Math.PI) % 360 + 360) % 360;
+    if (body.isMoon) {
+      const parent = getParentStar(body);
+      lines = [
+        `:: MOON [${body.name.toUpperCase()} -> ${parent.name.toUpperCase()}]`,
+        `orbit  : T=${Math.abs(body.orbitalPeriodDays)}d ${body.orbitalPeriodDays < 0 ? '(RETRO)' : '(PRO)'} // ${lonDeg.toFixed(1)}°`,
+        `class  : ${meta.stack} // ${meta.branch}`,
+        `action : ${actionHint} [notes:${notesCount}]`
+      ];
+    } else {
+      const childMoons = bodies.filter(m => m.parentBodyId === body.id).map(m => m.name);
+      const moonSummary = childMoons.length > 0 ? `${childMoons.length} [${childMoons.join(',')}]` : '0 moons';
+      lines = [
+        `:: PLANET [${body.name.toUpperCase()}] (${body.auDist || 'SOL'})`,
+        `ephem  : T=${body.orbitalPeriodDays}d // LON:${lonDeg.toFixed(1)}°`,
+        `moons  : ${moonSummary}`,
+        `action : ${actionHint} [notes:${notesCount}]`
+      ];
+    }
+  } else {
+    lines = [
+      `:: SECTOR [${body.name.toUpperCase()}]`,
+      `repo   : ${meta.fullName || body.name}`,
+      `stack  : ${meta.stack} // ${meta.commits}`,
+      `action : ${actionHint} [notes:${notesCount}]`
+    ];
+  }
 
   ctx.fillStyle = 'rgba(6, 9, 20, 0.92)';
-  ctx.fillRect(cardX - 4, cardY + 10, 236, 64);
+  ctx.fillRect(cardX - 4, cardY + 10, 248, 64);
   ctx.strokeStyle = body.color;
-  ctx.strokeRect(cardX - 4, cardY + 10, 236, 64);
+  ctx.strokeRect(cardX - 4, cardY + 10, 248, 64);
 
   ctx.font = '10px monospace';
   ctx.textAlign = 'left';
   ctx.globalAlpha = 1.0;
   lines.forEach((ln, idx) => {
     ctx.fillStyle = idx === 0 ? body.color : (idx === 3 ? '#fde047' : '#cbd5e1');
-    ctx.fillText(ln.slice(0, 36), cardX + 4, cardY + 23 + idx * 13);
+    ctx.fillText(ln.slice(0, 38), cardX + 4, cardY + 23 + idx * 13);
   });
 
   ctx.restore();
@@ -561,13 +624,13 @@ function drawAsciiOrbitRing(ctx, centerScr, body, width, height) {
   const radiusPx = body.orbitRadius * camera.zoom;
   const vib = body.ringVibration || 0;
   const circumference = 2 * Math.PI * radiusPx;
-  const stepCount = Math.max(32, Math.min(130, Math.floor(circumference / 16)));
+  const stepCount = Math.max(16, Math.min(130, Math.floor(circumference / (body.isMoon ? 12 : 16))));
 
   ctx.font = vib > 0.08 ? '10px monospace' : '9px monospace';
   ctx.fillStyle = body.color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.globalAlpha = 0.22 + vib * 0.58;
+  ctx.globalAlpha = body.isMoon ? 0.18 : (0.22 + vib * 0.58);
 
   for (let i = 0; i < stepCount; i++) {
     const a = (i / stepCount) * Math.PI * 2;
@@ -585,7 +648,7 @@ function drawAsciiOrbitRing(ctx, centerScr, body, width, height) {
     } else if (config.shaderMode === 'pure_binary') {
       ch = (i & 1) ? '1' : '0';
     } else {
-      ch = (i % 4 === 0) ? ':' : '·';
+      ch = body.isMoon ? '·' : ((i % 4 === 0) ? ':' : '·');
     }
     ctx.fillText(ch, Math.round(ox), Math.round(oy));
   }
@@ -619,13 +682,15 @@ function updateAsciiRadarWidget() {
   if (!showAsciiHud || zenMode) return;
   const sysStar = camera.activeSystem === 'github'
     ? (bodies.find(b => b.id === 'gh_core') || bodies[0])
-    : bodies[0];
+    : (camera.activeSystem === 'solar'
+      ? (bodies.find(b => b.id === 'solar_core') || bodies[0])
+      : bodies[0]);
   const p = probes.find(pr => pr.id === selectedProbeId) || probes[0];
   const b = bodies.find(bd => bd.id === p.targetBodyId) || sysStar;
   const dist = Math.round(Math.hypot(p.x - b.x, p.y - b.y));
   const angleDeg = Math.round(((Math.atan2(p.y - sysStar.y, p.x - sysStar.x) * 180) / Math.PI + 360) % 360);
 
-  // Expanded 23x11 dot-matrix radar (more pixels to show bodies clearly)
+  // Expanded 23x23 dot-matrix radar
   const cols = 23;
   const rows = 23;
   const grid = Array.from({ length: rows }, () => Array(cols).fill('.'));
@@ -633,23 +698,28 @@ function updateAsciiRadarWidget() {
   const cy = Math.floor(rows / 2);
   grid[cy][cx] = '@';
 
+  const maxRadarDist = camera.activeSystem === 'solar' ? 950 : 510;
+
   bodies.forEach(bd => {
     if (bd.id === sysStar.id) return;
-    if (bd.parentBodyId && bd.parentBodyId !== sysStar.id) return;
-    const gx = Math.round(cx + ((bd.x - sysStar.x) / 510) * (cols / 2 - 1));
-    const gy = Math.round(cy + ((bd.y - sysStar.y) / 510) * (rows / 2 - 1));
+    if (getSystemKeyForBody(bd) !== camera.activeSystem) return;
+    // On solar system radar, map planets and major bodies; skip micro moons unless hovered
+    if (bd.isMoon && (!hoveredBody || (hoveredBody.id !== bd.id && hoveredBody.id !== bd.parentBodyId))) return;
+
+    const gx = Math.round(cx + ((bd.x - sysStar.x) / maxRadarDist) * (cols / 2 - 1));
+    const gy = Math.round(cy + ((bd.y - sysStar.y) / maxRadarDist) * (rows / 2 - 1));
     if (gy >= 0 && gy < rows && gx >= 0 && gx < cols) {
-      grid[gy][gx] = bd.styleType === 'blackhole' ? '%' : (bd.styleType === 'rogue' ? 'X' : 'O');
+      grid[gy][gx] = bd.styleType === 'blackhole' ? '%' : (bd.styleType === 'rogue' ? 'X' : (bd.isMoon ? 'o' : 'O'));
     }
   });
 
-  const px = Math.round(cx + ((p.x - sysStar.x) / 510) * (cols / 2 - 1));
-  const py = Math.round(cy + ((p.y - sysStar.y) / 510) * (rows / 2 - 1));
+  const px = Math.round(cx + ((p.x - sysStar.x) / maxRadarDist) * (cols / 2 - 1));
+  const py = Math.round(cy + ((p.y - sysStar.y) / maxRadarDist) * (rows / 2 - 1));
   if (py >= 0 && py < rows && px >= 0 && px < cols) {
     grid[py][px] = '*';
   }
 
-  const sysTag = camera.activeSystem === 'github' ? '02::GH_ORBIT' : '01::SOL_ORBIT';
+  const sysTag = camera.activeSystem === 'solar' ? '03::SOLAR_SYS' : (camera.activeSystem === 'github' ? '02::GH_ORBIT' : '01::SOL_ORBIT');
   const camTag = camera.lockedTarget
     ? ('CAM::' + camera.lockedTarget.label.toUpperCase()).slice(0, 29)
     : 'CAM::FREE';

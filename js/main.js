@@ -114,17 +114,22 @@ function toggleAsciiHud() {
 }
 
 function setRadiusFilter(sysKey) {
-  radiusFilterMode = sysKey === 'github' ? 'github' : 'sol';
+  radiusFilterMode = (sysKey === 'github' || sysKey === 'solar') ? sysKey : 'sol';
   const btnSol = document.getElementById('btnRadFilterSol');
   const btnGh = document.getElementById('btnRadFilterGh');
+  const btnSolar = document.getElementById('btnRadFilterSolar');
   if (btnSol && btnGh) {
-    const isGh = radiusFilterMode === 'github';
-    btnSol.className = !isGh
+    btnSol.className = radiusFilterMode === 'sol'
       ? 'text-amber-300 font-semibold transition'
       : 'text-slate-500 hover:text-amber-300 transition';
-    btnGh.className = isGh
+    btnGh.className = radiusFilterMode === 'github'
       ? 'text-emerald-300 font-semibold transition'
       : 'text-slate-500 hover:text-emerald-300 transition';
+    if (btnSolar) {
+      btnSolar.className = radiusFilterMode === 'solar'
+        ? 'text-cyan-300 font-semibold transition'
+        : 'text-slate-500 hover:text-cyan-300 transition';
+    }
   }
   renderPlanetRadiusSliders();
 }
@@ -133,8 +138,7 @@ function renderPlanetRadiusSliders() {
   const listEl = document.getElementById('planetRadiusList');
   if (!listEl) return;
 
-  const parentId = radiusFilterMode === 'github' ? 'gh_core' : 'core';
-  const targetBodies = bodies.filter(b => !b.fixedPos && (b.parentBodyId || 'core') === parentId);
+  const targetBodies = bodies.filter(b => !b.fixedPos && getSystemKeyForBody(b) === radiusFilterMode);
 
   if (targetBodies.length === 0) {
     listEl.innerHTML = `<div class="text-slate-600 text-center py-1">no orbiting bodies in sector</div>`;
@@ -143,6 +147,9 @@ function renderPlanetRadiusSliders() {
 
   listEl.innerHTML = targetBodies.map(b => {
     const radVal = Math.round(b.orbitRadius);
+    const minR = b.isMoon ? 15 : 60;
+    const maxR = b.isMoon ? 120 : (b.isRealSolar ? 1100 : 680);
+    const prefix = b.isMoon ? '  └ ' : '';
     return `
       <div class="grid grid-cols-12 items-center gap-3">
         <button
@@ -151,12 +158,12 @@ function renderPlanetRadiusSliders() {
           class="col-span-5 text-left truncate hover:underline"
           style="color:${b.color}"
           title="Click to focus camera on [${b.name}]"
-        >[${b.name}]</button>
+        >${prefix}[${b.name}]</button>
         <input
           type="range"
-          min="90"
-          max="680"
-          step="5"
+          min="${minR}"
+          max="${maxR}"
+          step="${b.isMoon ? 1 : 5}"
           value="${radVal}"
           oninput="updateBodyOrbitRadius('${b.id}', this.value)"
           class="col-span-5"
@@ -355,6 +362,8 @@ window.addEventListener('keydown', (e) => {
     const drawer = document.getElementById('customizerDrawer');
     if (drawer && !drawer.classList.contains('hidden')) {
       switchCustomizerTab('orbits');
+    } else {
+      lockCameraToSystem('solar');
     }
   } else if (e.key === '[' || e.key === 'ArrowLeft') {
     cycleCameraLock(-1);
@@ -362,12 +371,14 @@ window.addEventListener('keydown', (e) => {
     cycleCameraLock(1);
   } else if (e.key === ' ') {
     e.preventDefault();
-    // Space: if hovering a planet, lock onto it; otherwise toggle between Sol Orbit and GitHub Orbit
+    // Space: if hovering a planet, lock onto it; otherwise cycle between Sol Orbit, GitHub Orbit, and Solar System
     if (hoveredBody) {
       setCameraLock('body', hoveredBody.id, hoveredBody.name);
       playSpacePing(587.33, 0.2);
     } else {
-      const nextSys = camera.activeSystem === 'github' ? 'sol' : 'github';
+      const order = ['sol', 'github', 'solar'];
+      const curIdx = order.indexOf(camera.activeSystem);
+      const nextSys = order[(curIdx + 1) % order.length];
       lockCameraToSystem(nextSys);
     }
   } else if (e.key === 'Escape') {
@@ -732,6 +743,10 @@ function confirmQuickSpawn(type) {
 }
 
 window.addEventListener('wheel', (e) => {
+  // Allow normal scrolling inside customizer drawer, mission drawers, and scrollable panels
+  if (e.target.closest('#customizerDrawer, #missionResultDrawer, #aiSelectorMenu, #spawnPopover, .overflow-y-auto, .overflow-x-auto, pre')) {
+    return;
+  }
   e.preventDefault();
   const factor = e.deltaY < 0 ? 1.1 : 0.9;
   camera.zoom = Math.max(0.45, Math.min(2.4, camera.zoom * factor));
@@ -1009,14 +1024,26 @@ function animate() {
     drawAsciiCelestialBody(ctx, scr.x, scr.y, r * 1.18, b);
 
     if (config.showLabels) {
-      ctx.font = '12px monospace';
-      ctx.fillStyle = b.color;
-      ctx.globalAlpha = 0.9;
-      ctx.textAlign = 'center';
-      ctx.fillText(`[${b.name}]`, Math.round(scr.x), Math.round(scr.y + r * 1.35 + 16));
-      ctx.globalAlpha = 1.0;
+      if (!b.isMoon || camera.zoom >= 0.82 || (hoveredBody && (hoveredBody.id === b.id || hoveredBody.id === b.parentBodyId))) {
+        ctx.font = b.isMoon ? '10px monospace' : '12px monospace';
+        ctx.fillStyle = b.color;
+        ctx.globalAlpha = b.isMoon ? 0.72 : 0.9;
+        ctx.textAlign = 'center';
+        ctx.fillText(b.isMoon ? b.name : `[${b.name}]`, Math.round(scr.x), Math.round(scr.y + r * 1.35 + (b.isMoon ? 10 : 16)));
+        ctx.globalAlpha = 1.0;
+      }
     }
   });
+
+  const ephemEl = document.getElementById('solarEphemStatus');
+  if (ephemEl && Math.floor(simTime * 4) !== Math.floor((simTime - 0.016) * 4)) {
+    try {
+      const curDate = new Date(solarSimTimeMs);
+      const dateStr = curDate.toISOString().slice(0, 10);
+      const scaleTag = (config.solarTimeScale || 'day').toUpperCase();
+      ephemEl.textContent = `[SOLAR::${dateStr}_${scaleTag}]`;
+    } catch (e) {}
+  }
 
   drawCameraLockReticle(ctx, width, height);
 
