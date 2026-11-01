@@ -1,0 +1,315 @@
+// ============================================================================
+// AUKA // ORBITAL ASCII & BINARY TELEMETRY (Draft 2) — N-Body Physics & Camera
+// ============================================================================
+
+function screenToWorld(sx, sy, width, height) {
+  return {
+    x: camera.x + (sx - width / 2) / camera.zoom,
+    y: camera.y + (sy - height / 2) / camera.zoom
+  };
+}
+
+function worldToScreen(wx, wy, width, height) {
+  return {
+    x: width / 2 + (wx - camera.x) * camera.zoom,
+    y: height / 2 + (wy - camera.y) * camera.zoom
+  };
+}
+
+function updateLockedCamera() {
+  if (!camera.lockedTarget) {
+    // Keep activeSystem synced to whichever star is closer to current camera view
+    const closestStar = getClosestSystemCenter(camera.x, camera.y);
+    camera.activeSystem = closestStar.id === 'gh_core' ? 'github' : 'sol';
+    updateCameraLockBadge();
+    return;
+  }
+
+  let targetX = null;
+  let targetY = null;
+
+  if (camera.lockedTarget.type === 'body') {
+    const b = bodies.find(bd => bd.id === camera.lockedTarget.id);
+    if (b) {
+      targetX = b.x;
+      targetY = b.y;
+      camera.activeSystem = (b.id === 'gh_core' || b.parentBodyId === 'gh_core') ? 'github' : 'sol';
+    } else {
+      camera.lockedTarget = null;
+    }
+  } else if (camera.lockedTarget.type === 'probe') {
+    const p = probes.find(pr => pr.id === camera.lockedTarget.id);
+    if (p) {
+      targetX = p.x;
+      targetY = p.y;
+      const closestStar = getClosestSystemCenter(p.x, p.y);
+      camera.activeSystem = closestStar.id === 'gh_core' ? 'github' : 'sol';
+    } else {
+      camera.lockedTarget = null;
+    }
+  }
+
+  if (targetX !== null && targetY !== null && camera.lockedTarget) {
+    const dist = Math.hypot(targetX - camera.x, targetY - camera.y);
+    // Smooth glide when switching targets; tight 1:1 lock once arrived so moving planets never jitter
+    if (dist < 2.2) {
+      camera.lockedTarget.lerp = 1.0;
+    } else {
+      camera.lockedTarget.lerp = Math.min(1.0, (camera.lockedTarget.lerp || 0.16) + 0.015);
+    }
+    const alpha = camera.lockedTarget.lerp || 0.18;
+    camera.x += (targetX - camera.x) * alpha;
+    camera.y += (targetY - camera.y) * alpha;
+  }
+
+  updateCameraLockBadge();
+}
+
+function setCameraLock(type, id, label) {
+  if (!type || !id) {
+    camera.lockedTarget = null;
+  } else {
+    camera.lockedTarget = {
+      type,
+      id,
+      label: label || id,
+      lerp: 0.18
+    };
+  }
+  updateCameraLockBadge();
+}
+
+function unlockCameraInPlace() {
+  camera.lockedTarget = null;
+  updateCameraLockBadge();
+  if (typeof playSpacePing === 'function') playSpacePing(420, 0.15);
+}
+
+function lockCameraToSystem(sysKey) {
+  if (sysKey === 'github') {
+    camera.activeSystem = 'github';
+    setCameraLock('body', 'gh_core', 'gh::aukabanana');
+    // Select scribe probe if user jumps to GitHub orbit
+    const ghProbe = probes.find(p => p.id === 'scribe');
+    if (ghProbe) {
+      selectedProbeId = ghProbe.id;
+      if (typeof syncBottomBarProbe === 'function') syncBottomBarProbe();
+    }
+  } else {
+    camera.activeSystem = 'sol';
+    setCameraLock('body', 'core', 'sol');
+  }
+  if (typeof playSpacePing === 'function') playSpacePing(sysKey === 'github' ? 659.25 : 523.25, 0.22);
+}
+
+function lockCameraToActiveProbe() {
+  const p = probes.find(pr => pr.id === selectedProbeId) || probes[0];
+  if (!p) return;
+  setCameraLock('probe', p.id, p.short);
+  if (typeof playSpacePing === 'function') playSpacePing(698.46, 0.2);
+}
+
+function cycleCameraLock(step = 1) {
+  const sysParentId = camera.activeSystem === 'github' ? 'gh_core' : 'core';
+  const sysBodies = bodies.filter(b => b.id === sysParentId || b.parentBodyId === sysParentId);
+  const pool = sysBodies.length > 0 ? sysBodies : bodies;
+
+  let curIdx = -1;
+  if (camera.lockedTarget && camera.lockedTarget.type === 'body') {
+    curIdx = pool.findIndex(b => b.id === camera.lockedTarget.id);
+  }
+  const nextIdx = (curIdx + step + pool.length) % pool.length;
+  const target = pool[nextIdx];
+  if (target) {
+    setCameraLock('body', target.id, target.name);
+    if (typeof playSpacePing === 'function') playSpacePing(587.33, 0.18);
+  }
+}
+
+function updateCameraLockBadge() {
+  const btnSol = document.getElementById('btnOrbitSol');
+  const btnGh = document.getElementById('btnOrbitGh');
+  const btnProbe = document.getElementById('btnCamProbe');
+  const btnFree = document.getElementById('btnCamFree');
+
+  if (btnSol && btnGh) {
+    const isGh = camera.activeSystem === 'github';
+    btnSol.className = !isGh
+      ? 'cursor-pointer text-amber-300 font-semibold'
+      : 'cursor-pointer text-slate-500 hover:text-amber-300';
+    btnGh.className = isGh
+      ? 'cursor-pointer text-emerald-300 font-semibold'
+      : 'cursor-pointer text-slate-500 hover:text-emerald-300';
+  }
+
+  if (btnProbe) {
+    const isProbeLocked = camera.lockedTarget && camera.lockedTarget.type === 'probe';
+    btnProbe.className = isProbeLocked
+      ? 'cursor-pointer text-cyan-300 font-semibold'
+      : 'cursor-pointer text-slate-500 hover:text-cyan-300';
+  }
+
+  if (btnFree) {
+    const isFree = !camera.lockedTarget;
+    btnFree.className = isFree
+      ? 'cursor-pointer text-purple-300 font-semibold'
+      : 'cursor-pointer text-slate-500 hover:text-purple-300';
+  }
+}
+
+function updatePlanetPositions() {
+  bodies.forEach(b => {
+    if (b.ringVibration > 0.005) {
+      b.ringVibration *= 0.95;
+    } else {
+      b.ringVibration = 0;
+    }
+    if (b.fixedPos) return;
+    const parent = getParentStar(b);
+    if (b.orbitRadius > 0) {
+      b.angle += b.orbitSpeed * config.planetSpeedMult;
+      b.x = parent.x + Math.cos(b.angle) * b.orbitRadius;
+      b.y = parent.y + Math.sin(b.angle) * b.orbitRadius;
+    } else {
+      b.x = parent.x;
+      b.y = parent.y;
+    }
+  });
+}
+
+function computeGravity(px, py) {
+  let ax = 0;
+  let ay = 0;
+  let closestBody = bodies[0];
+  let minDist = Infinity;
+
+  for (const b of bodies) {
+    const dx = b.x - px;
+    const dy = b.y - py;
+    const distSq = dx * dx + dy * dy + 550;
+    const dist = Math.sqrt(distSq);
+    if (dist < minDist) {
+      minDist = dist;
+      closestBody = b;
+    }
+    const force = (b.mass * 0.17 * config.gravityMult) / distSq;
+    ax += (dx / dist) * force;
+    ay += (dy / dist) * force;
+  }
+  return { ax, ay, closestBody, minDist };
+}
+
+function predictTrajectory(startX, startY, vx, vy, steps = 60) {
+  const pts = [];
+  let x = startX;
+  let y = startY;
+  let cvx = vx;
+  let cvy = vy;
+
+  for (let i = 0; i < steps; i++) {
+    const { ax, ay } = computeGravity(x, y);
+    cvx += ax * 1.2;
+    cvy += ay * 1.2;
+    x += cvx * 1.2;
+    y += cvy * 1.2;
+    pts.push({ x, y });
+  }
+  return pts;
+}
+
+function spawnFloatingText(x, y, text, color = '#34d399') {
+  floatingTexts.push({ x, y, text, color, life: 1.0 });
+}
+
+function spawnThrusterParticles(x, y, vx, vy, color, count = 24) {
+  for (let i = 0; i < count; i++) {
+    const spread = (Math.random() - 0.5) * 1.4;
+    const speed = Math.random() * 3.6 + 1.2;
+    const angle = Math.atan2(-vy, -vx) + spread;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1.0,
+      decay: Math.random() * 0.025 + 0.018,
+      color,
+      glyph: PARTICLE_GLYPHS[i % PARTICLE_GLYPHS.length]
+    });
+  }
+}
+
+function spawnLaserPacket(fromX, fromY, toX, toY, color, onArrive = null) {
+  laserPackets.push({
+    fromX, fromY, toX, toY,
+    progress: 0,
+    speed: 0.032,
+    color,
+    bits: Array.from({ length: 6 }, () => (Math.random() > 0.5 ? '1' : '0')).join(''),
+    onArrive
+  });
+}
+
+function spawnBinaryComet() {
+  const center = camera.activeSystem === 'github' ? ORBIT_SYSTEMS.github : ORBIT_SYSTEMS.sol;
+  const side = Math.random() > 0.5 ? 1 : -1;
+  const startX = center.x + side * 780;
+  const startY = center.y + (Math.random() - 0.5) * 560;
+  const aimX = center.x + (Math.random() - 0.5) * 180;
+  const aimY = center.y + (Math.random() - 0.5) * 180;
+  const angle = Math.atan2(aimY - startY, aimX - startX);
+  const speed = 5.4;
+
+  comets.push({
+    x: startX,
+    y: startY,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    tail: [],
+    bits: '01101001',
+    color: '#fde047'
+  });
+  playSpacePing(740, 0.25);
+}
+
+function interceptRogueSatellite(probe, rogueBody) {
+  const idx = bodies.indexOf(rogueBody);
+  if (idx === -1) return;
+
+  const homeStar = getParentStar(rogueBody);
+  bodies.splice(idx, 1);
+  ctfFlagsCaptured++;
+  savePersistentState();
+
+  const badge = document.getElementById('ctfScoreBadge');
+  if (badge) {
+    badge.classList.remove('hidden');
+    badge.textContent = `[FLAGS::${String(ctfFlagsCaptured).padStart(2, '0')}]`;
+  }
+
+  spawnThrusterParticles(rogueBody.x, rogueBody.y, 0, 0, '#34d399', 55);
+  spawnThrusterParticles(rogueBody.x, rogueBody.y, 1, 1, '#fde047', 35);
+  const flagHex = Math.floor(Math.random() * 0xfff + 0x100).toString(16).toUpperCase();
+  const flagStr = `AUKA{0RB1T_PWN_0x${flagHex}}`;
+
+  spawnFloatingText(rogueBody.x, rogueBody.y, `[FLAG_CAPTURED :: ${flagStr}]`, '#34d399');
+  probe.statusText = `pwned :: 0x${flagHex}`;
+  probe.targetBodyId = homeStar.id === 'gh_core' ? 'gh_core' : 'ctf';
+  probe.mode = 'ORBIT';
+
+  spawnLaserPacket(rogueBody.x, rogueBody.y, homeStar.x, homeStar.y, '#34d399', () => {
+    const drawer = document.getElementById('missionResultDrawer');
+    document.getElementById('resTag').textContent = '[0xDEAD::FLAG_DECRYPTED]';
+    document.getElementById('resTitle').textContent = `${probe.short} -> ${flagStr}`;
+    document.getElementById('resCodeBox').textContent = [
+      `+-------------------------------------------------------+`,
+      `|  [!] ROGUE_SATELLITE_INTERCEPTED // 0xDEAD            |`,
+      `+-------------------------------------------------------+`,
+      `  AGENT   :: [${probe.short}]`,
+      `  FLAG    :: ${flagStr}`,
+      `  TOTAL   :: ${ctfFlagsCaptured} FLAG(S) ARCHIVED TO LOCAL_STORAGE`
+    ].join('\n');
+    drawer.classList.remove('hidden');
+  });
+
+  playSpaceChord([329.63, 440, 659.25, 880], 1.0);
+}

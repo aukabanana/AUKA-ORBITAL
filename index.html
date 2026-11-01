@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AUKA // ORBITAL ASCII & BINARY TELEMETRY [DRAFT 2]</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="text-slate-200 antialiased relative w-full h-screen overflow-hidden" style="--theme-accent: #38bdf8;">
+
+  <!-- Full-Screen Pure ASCII + Binary Art Astrophysics Canvas -->
+  <canvas id="cosmosCanvas" class="block w-full h-full cursor-crosshair"></canvas>
+
+  <!-- TOP LEFT: Clean Minimal 2-Line ASCII Header & Key Hints (Zero Button Clutter) -->
+  <div id="topHint" class="fixed top-5 left-6 z-10 pointer-events-none space-y-1 transition-opacity duration-200">
+    <div class="flex flex-wrap items-center gap-3 text-xs tracking-wider">
+      <span class="text-cyan-400 font-semibold">[SYS::ASCII_ORBIT_02]</span>
+      <span id="ghSyncStatus" class="text-slate-500">[GH::SYNCING]</span>
+      <span id="ctfScoreBadge" class="text-emerald-400/90 hidden">[FLAGS::00]</span>
+    </div>
+    <div class="flex flex-wrap items-center gap-2.5 text-xs text-slate-500">
+      <span><span class="text-cyan-300">click</span> lock_cam</span>
+      <span class="text-slate-700">/</span>
+      <span><span class="text-amber-300">space</span> switch_orbit</span>
+      <span class="text-slate-700">/</span>
+      <span><span class="text-pink-300">drag</span> slingshot/pan</span>
+      <span class="text-slate-700">/</span>
+      <span><span class="text-purple-300">tab</span> config</span>
+      <span class="text-slate-700">/</span>
+      <span><span class="text-emerald-300">h</span> zen</span>
+    </div>
+  </div>
+
+  <!-- TOP RIGHT: Unified 49-Char High-Pixel ASCII Radar + Orbit & Camera Frame -->
+  <div id="asciiTelemetryBox" class="fixed top-5 right-6 z-10 hidden sm:block text-right transition-opacity duration-200 select-none">
+    <pre id="asciiArtWidget" class="text-[11px] leading-[1.15] text-cyan-400/75 font-mono pointer-events-none"></pre>
+    <pre class="text-[11px] leading-[1.2] text-cyan-400/75 font-mono pointer-events-auto">| <span class="text-slate-500">orbit ::</span> <span id="btnOrbitSol" onclick="lockCameraToSystem('sol')" class="cursor-pointer text-amber-300 font-semibold">[01::sol]</span>               <span id="btnOrbitGh" onclick="lockCameraToSystem('github')" class="cursor-pointer text-slate-500 hover:text-emerald-300">[02::github]</span> |
+| <span class="text-slate-500">track ::</span> <span onclick="cycleCameraLock(-1)" class="cursor-pointer text-slate-400 hover:text-cyan-300">[&lt;]</span> <span onclick="cycleCameraLock(1)" class="cursor-pointer text-slate-400 hover:text-cyan-300">[&gt;]</span>          <span id="btnCamProbe" onclick="lockCameraToActiveProbe()" class="cursor-pointer text-slate-500 hover:text-cyan-300">[probe]</span>      <span id="btnCamFree" onclick="unlockCameraInPlace()" class="cursor-pointer text-slate-500 hover:text-purple-300">[free]</span> |
++-----------------------------------------------+</pre>
+    <div id="binaryStreamLine" class="text-[11px] text-purple-400/65 mt-1 tracking-widest pointer-events-none"></div>
+  </div>
+
+  <!-- Double-Click Empty Space Spawn Popover with Optional Inline Name Input -->
+  <div id="spawnPopover" class="hidden fixed z-30 -translate-x-1/2 -translate-y-1/2 pointer-events-auto">
+    <div class="surface p-2 space-y-1.5 text-xs">
+      <input
+        id="spawnNameInput"
+        type="text"
+        maxlength="16"
+        placeholder="sector_name (optional)..."
+        class="w-full px-2 py-1 bg-slate-950/90 border border-slate-800 text-xs text-cyan-200 placeholder-slate-600 focus:outline-none focus:border-cyan-400/60"
+      />
+      <div class="flex items-center gap-1">
+        <button onclick="confirmQuickSpawn('blackhole')" class="px-2 py-1 hover:bg-amber-500/15 text-amber-300 transition">
+          [+ singularity]
+        </button>
+        <button onclick="confirmQuickSpawn('wormhole')" class="px-2 py-1 hover:bg-fuchsia-500/15 text-fuchsia-300 transition">
+          [+ wormhole]
+        </button>
+        <button onclick="confirmQuickSpawn('cyber')" class="px-2 py-1 hover:bg-cyan-500/15 text-cyan-300 transition">
+          [+ planet]
+        </button>
+        <button onclick="confirmQuickSpawn('rogue')" class="px-2 py-1 hover:bg-rose-500/15 text-rose-300 transition">
+          [+ 0xDEAD]
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Center Command Stack -->
+  <div id="bottomHudContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 w-[92vw] max-w-lg flex flex-col gap-2 pointer-events-none transition-opacity duration-200">
+
+    <!-- Mission / GitHub Repo Inspection / Persistent Notes Output Panel -->
+    <div id="missionResultDrawer" class="hidden surface p-3.5 pointer-events-auto space-y-2">
+      <div class="flex items-center justify-between hairline-b pb-2 text-xs">
+        <div class="flex items-center gap-2">
+          <span class="text-emerald-400 font-semibold" id="resTag">[0110::PACKET_RX]</span>
+          <span class="text-cyan-300" id="resTitle">recon -> ctf-vault</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="approveDeliverable()" class="px-2.5 py-0.5 bg-emerald-500/20 border border-emerald-400/50 hover:bg-emerald-400 hover:text-slate-950 text-emerald-300 text-xs transition">
+            [ack]
+          </button>
+          <button onclick="document.getElementById('missionResultDrawer').classList.add('hidden')" class="text-xs text-slate-500 hover:text-slate-200 px-1">
+            [x]
+          </button>
+        </div>
+      </div>
+      <pre id="resCodeBox" class="text-xs text-emerald-200/90 overflow-x-auto max-h-48 whitespace-pre-wrap leading-relaxed"></pre>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- PARAMETERS INSPECTOR (Opened via Tab — Colored Structural ASCII UI) -->
+    <!-- =================================================================== -->
+    <div id="customizerDrawer" class="hidden surface pointer-events-auto text-xs">
+      <div class="px-3.5 py-2 hairline-b flex items-center justify-between">
+        <span class="text-cyan-300 font-semibold">:: SYS_PARAMETERS [0x0F]</span>
+        <div class="flex items-center gap-3">
+          <button onclick="resetSettings()" class="text-amber-400/80 hover:text-amber-300 transition">[reset]</button>
+          <button onclick="toggleCustomizer()" class="text-slate-400 hover:text-white transition">[close]</button>
+        </div>
+      </div>
+
+      <div class="p-3.5 space-y-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-slate-400">palette_mode</span>
+          <div class="flex items-center gap-1">
+            <button id="btnThemeTokyo" onclick="applyTheme('tokyo')" class="px-2.5 py-0.5 border border-cyan-400/60 bg-cyan-500/15 text-cyan-300 transition">
+              tokyo_night
+            </button>
+            <button id="btnThemeNebula" onclick="applyTheme('nebula')" class="px-2.5 py-0.5 border border-slate-800 text-slate-500 hover:text-pink-300 transition">
+              nebula_void
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <span class="text-slate-400">charset_matrix</span>
+          <div class="flex items-center gap-1">
+            <button id="btnShaderHybrid" onclick="setShaderMode('hybrid_ascii')" class="px-2 py-0.5 border border-purple-400/60 bg-purple-500/15 text-purple-300 transition">
+              ascii+binary
+            </button>
+            <button id="btnShaderBinary" onclick="setShaderMode('pure_binary')" class="px-2 py-0.5 border border-slate-800 text-slate-500 hover:text-emerald-300 transition">
+              pure_binary
+            </button>
+            <button id="btnShaderDense" onclick="setShaderMode('dense_glyph')" class="px-2 py-0.5 border border-slate-800 text-slate-500 hover:text-cyan-300 transition">
+              dense_ascii
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-12 items-center gap-3">
+          <span class="col-span-5 text-slate-400">planet_velocity</span>
+          <input id="slPlanetSpeed" type="range" min="0" max="4" step="0.1" value="1.0" oninput="updateTuner()" class="col-span-5" />
+          <span id="valPlanetSpeed" class="col-span-2 text-right text-cyan-300">1.0x</span>
+        </div>
+
+        <div class="grid grid-cols-12 items-center gap-3">
+          <span class="col-span-5 text-slate-400">probe_velocity</span>
+          <input id="slProbeSpeed" type="range" min="0" max="4" step="0.1" value="1.0" oninput="updateTuner()" class="col-span-5" />
+          <span id="valProbeSpeed" class="col-span-2 text-right text-purple-300">1.0x</span>
+        </div>
+
+        <div class="grid grid-cols-12 items-center gap-3">
+          <span class="col-span-5 text-slate-400">gravity_constant</span>
+          <input id="slGravity" type="range" min="0.2" max="3.0" step="0.1" value="1.0" oninput="updateTuner()" class="col-span-5" />
+          <span id="valGravity" class="col-span-2 text-right text-amber-300">1.0x</span>
+        </div>
+
+        <div class="grid grid-cols-12 items-center gap-3">
+          <span class="col-span-5 text-slate-400">binary_trail_len</span>
+          <input id="slTrail" type="range" min="0" max="120" step="4" value="48" oninput="updateTuner()" class="col-span-5" />
+          <span id="valTrail" class="col-span-2 text-right text-emerald-300">048</span>
+        </div>
+
+        <div class="grid grid-cols-12 items-center gap-3">
+          <span class="col-span-5 text-slate-400">grid_luminance</span>
+          <input id="slGrid" type="range" min="0" max="200" step="10" value="75" oninput="updateTuner()" class="col-span-5" />
+          <span id="valGrid" class="col-span-2 text-right text-cyan-300">075%</span>
+        </div>
+
+        <div class="grid grid-cols-12 items-center gap-3">
+          <span class="col-span-5 text-slate-400">glyph_density</span>
+          <input id="slScale" type="range" min="0.7" max="1.8" step="0.1" value="1.0" oninput="updateTuner()" class="col-span-5" />
+          <span id="valScale" class="col-span-2 text-right text-pink-300">1.0x</span>
+        </div>
+      </div>
+
+      <!-- PER-PLANET ORBIT RADIUS TUNER -->
+      <div class="px-3.5 py-1.5 hairline-t hairline-b flex items-center justify-between bg-slate-950/50">
+        <span class="text-cyan-300 font-semibold">:: PLANET_ORBIT_RADIUS</span>
+        <div class="flex items-center gap-2 text-xs">
+          <button type="button" id="btnRadFilterSol" onclick="setRadiusFilter('sol')" class="text-amber-300 font-semibold transition">[01::sol]</button>
+          <button type="button" id="btnRadFilterGh" onclick="setRadiusFilter('github')" class="text-slate-500 hover:text-emerald-300 transition">[02::github]</button>
+        </div>
+      </div>
+      <div id="planetRadiusList" class="px-3.5 py-2.5 space-y-2 max-h-36 overflow-y-auto"></div>
+
+      <div class="px-3.5 py-2 hairline-t flex items-center justify-between text-slate-400">
+        <button type="button" onclick="toggleAudio()" class="flex items-center gap-1.5 hover:text-white transition">
+          <span>audio_synth:</span>
+          <span id="audioStateText" class="text-slate-500">[0]</span>
+        </button>
+
+        <button type="button" onclick="toggleAsciiHud()" class="flex items-center gap-1.5 hover:text-white transition">
+          <span>ascii_radar:</span>
+          <span id="asciiHudStateText" class="text-emerald-400">[1]</span>
+        </button>
+
+        <button type="button" onclick="toggleLabels()" class="flex items-center gap-1.5 hover:text-white transition">
+          <span>labels:</span>
+          <span id="labelStateText" class="text-cyan-300">[1]</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- AI AGENT DROPDOWN MENU -->
+    <div id="aiSelectorMenu" class="hidden surface p-1 pointer-events-auto w-64 self-start space-y-0.5"></div>
+
+    <!-- COMMAND INPUT BAR -->
+    <form onsubmit="dispatchMission(event)" class="surface px-3 py-2 pointer-events-auto flex items-center gap-3">
+      <button
+        type="button"
+        onclick="toggleAiMenu(event)"
+        class="flex items-center gap-2 px-2 py-0.5 bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 transition shrink-0 text-xs"
+      >
+        <span id="activeProbeBracket" class="font-semibold text-cyan-400">[recon]</span>
+        <span class="text-slate-500">::</span>
+      </button>
+
+      <input
+        id="dispatchInput"
+        type="text"
+        placeholder="enter repo query (tree, commits, readme) or sector task note..."
+        class="flex-1 bg-transparent text-xs text-slate-100 placeholder-slate-600 focus:outline-none"
+      />
+    </form>
+  </div>
+
+  <!-- Modular Classic Scripts (Works via file:// double-click without CORS errors) -->
+  <script src="js/state.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/github.js"></script>
+  <script src="js/physics.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
