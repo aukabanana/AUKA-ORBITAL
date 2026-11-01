@@ -221,6 +221,39 @@ function syncSlidersFromConfig() {
   if (typeof syncAudioUI === 'function') syncAudioUI();
 }
 
+let activeCustomizerTab = 'sim'; // 'sim' | 'audio' | 'orbits'
+
+function switchCustomizerTab(tabId) {
+  activeCustomizerTab = tabId;
+  const tabs = ['sim', 'audio', 'orbits'];
+  tabs.forEach(t => {
+    const btn = document.getElementById(`tabBtn_${t}`);
+    const panel = document.getElementById(`tabPanel_${t}`);
+    const isActive = t === tabId;
+    if (panel) {
+      if (isActive) {
+        panel.classList.remove('hidden');
+      } else {
+        panel.classList.add('hidden');
+      }
+    }
+    if (btn) {
+      if (isActive) {
+        btn.className = 'px-2.5 py-0.5 border border-cyan-400/80 bg-cyan-500/20 text-cyan-300 font-semibold transition';
+      } else {
+        btn.className = 'px-2.5 py-0.5 border border-slate-800 text-slate-500 hover:text-cyan-300 transition';
+      }
+    }
+  });
+
+  if (tabId === 'orbits') {
+    setRadiusFilter(camera.activeSystem);
+  }
+  if (typeof playSpacePing === 'function') {
+    playSpacePing(540, 0.1, 'sine');
+  }
+}
+
 function resetSettings() {
   document.getElementById('slPlanetSpeed').value = 1.0;
   document.getElementById('slProbeSpeed').value = 1.0;
@@ -240,6 +273,7 @@ function resetSettings() {
   if (typeof setMasterVolume === 'function') setMasterVolume(0.7);
   if (typeof applyTuning === 'function') applyTuning();
   if (typeof syncAudioUI === 'function') syncAudioUI();
+  switchCustomizerTab('sim');
 
   planetOrbitRadii = {};
   bodies.forEach(b => {
@@ -261,7 +295,9 @@ function toggleCustomizer() {
   const drawer = document.getElementById('customizerDrawer');
   const willShow = drawer.classList.contains('hidden');
   if (willShow) {
-    setRadiusFilter(camera.activeSystem);
+    if (activeCustomizerTab === 'orbits') {
+      setRadiusFilter(camera.activeSystem);
+    }
   }
   drawer.classList.toggle('hidden');
   playSpacePing(440, 0.15);
@@ -302,9 +338,24 @@ window.addEventListener('keydown', (e) => {
   } else if (e.key.toLowerCase() === 'h') {
     toggleZenMode();
   } else if (e.key === '1') {
-    lockCameraToSystem('sol');
+    const drawer = document.getElementById('customizerDrawer');
+    if (drawer && !drawer.classList.contains('hidden')) {
+      switchCustomizerTab('sim');
+    } else {
+      lockCameraToSystem('sol');
+    }
   } else if (e.key === '2') {
-    lockCameraToSystem('github');
+    const drawer = document.getElementById('customizerDrawer');
+    if (drawer && !drawer.classList.contains('hidden')) {
+      switchCustomizerTab('audio');
+    } else {
+      lockCameraToSystem('github');
+    }
+  } else if (e.key === '3') {
+    const drawer = document.getElementById('customizerDrawer');
+    if (drawer && !drawer.classList.contains('hidden')) {
+      switchCustomizerTab('orbits');
+    }
   } else if (e.key === '[' || e.key === 'ArrowLeft') {
     cycleCameraLock(-1);
   } else if (e.key === ']' || e.key === 'ArrowRight') {
